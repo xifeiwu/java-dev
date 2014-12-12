@@ -16,9 +16,6 @@ import java.net.Socket;
 import java.net.SocketException;
 import java.net.UnknownHostException;
 import java.util.Enumeration;
-import java.util.HashMap;
-import java.util.Map;
-
 import org.json.JSONObject;
 
 

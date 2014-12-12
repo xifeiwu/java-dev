@@ -35,7 +35,7 @@ public class MainFrame extends JFrame implements ActionListener {
 
 	private JMenuBar menuBar;
     private JMenu serverMenu;
-    private JMenuItem startSocketServerMI, stopServerMI;
+    private JMenuItem startSocketServerMI, stopServerMI, openClientWindow;
 
 	private Container container;
 	private JTextArea historyTextArea;
@@ -44,6 +44,8 @@ public class MainFrame extends JFrame implements ActionListener {
 	private Calendar calendar;
 
 	private MainFrame instance;
+	private  int WIDTH = 500, HEIGHT = 300; 
+	private Dimension screenSize =Toolkit.getDefaultToolkit().getScreenSize();
 	private SocketConnection socketConn;
 
 	public MainFrame() {
@@ -53,10 +55,13 @@ public class MainFrame extends JFrame implements ActionListener {
 		container = this.getContentPane();
 		
 		serverMenu = new JMenu("服务器设置");
+        openClientWindow = new JMenuItem("打开客户端窗口");
         startSocketServerMI = new JMenuItem("开启ServerSocket");
         stopServerMI = new JMenuItem("关闭ServerSocket");
+        openClientWindow.addActionListener(this);
         startSocketServerMI.addActionListener(this);
         stopServerMI.addActionListener(this);
+        serverMenu.add(openClientWindow);
         serverMenu.add(startSocketServerMI);
         serverMenu.add(stopServerMI);
 		menuBar.add(serverMenu);
@@ -80,6 +85,8 @@ public class MainFrame extends JFrame implements ActionListener {
 			}
 		});
 
+        this.setPreferredSize(new Dimension(WIDTH, HEIGHT));
+        this.setLocation((screenSize.width - WIDTH)/2, (screenSize.height - HEIGHT)/2);
 		socketConn = new SocketConnection(this);
 //        eventQueue = Toolkit.getDefaultToolkit().getSystemEventQueue();
 	}
@@ -99,6 +106,59 @@ public class MainFrame extends JFrame implements ActionListener {
 //            super.processEvent(e);
 //        }
 //    }
+
+    private JDialog mDialog;
+    private JButton confirmBtn, cancelBtn;
+    private JTextField hostField, portField;
+//    private String destAddress;
+//    private int destPort;
+    private void initDialog(){
+        JPanel mPanel = new JPanel();
+        GridLayout mLayout = new GridLayout(0,2);
+        mLayout.setHgap(10);
+        mLayout.setVgap(10);
+        JLabel hostLabel = new JLabel("IP地址：");
+        JLabel portLabel = new JLabel("端口号：");
+
+        hostField = new JTextField();
+        hostField.setColumns(16);
+        portField = new JTextField();
+        portField.setColumns(16);
+        
+        hostLabel.setLabelFor(hostField);
+        portLabel.setLabelFor(portField);
+        
+        confirmBtn = new JButton("确定");
+        cancelBtn = new JButton("取消");
+        confirmBtn.addActionListener(this);
+        cancelBtn.addActionListener(this);
+
+        mPanel.setBorder(BorderFactory.createEmptyBorder(10, 10, 10, 10));
+//        mPanel.setPreferredSize(new Dimension(400, 0));
+        mPanel.setLayout(mLayout);
+        mPanel.add(hostLabel);
+        mPanel.add(hostField);
+        mPanel.add(portLabel);
+        mPanel.add(portField);
+        mPanel.add(confirmBtn);
+        mPanel.add(cancelBtn);
+        
+        mDialog = new JDialog(this,true);
+        mDialog.setTitle("输入IP和端口号");
+        mDialog.getContentPane().add(mPanel);
+        mDialog.pack();   
+    }
+
+    private void showDialog(){
+        if(null == mDialog){
+            initDialog();
+        }
+        mDialog.setVisible(true);   
+    }
+    private void hideDialog(){
+        mDialog.setVisible(false);
+    }
+    
     public void myLog(String name, String msg){
         int hour, minute, second;
         calendar.setTimeInMillis(System.currentTimeMillis());
@@ -113,57 +173,6 @@ public class MainFrame extends JFrame implements ActionListener {
         System.out.println(msgObj.toString());
     }
     
-//	private JDialog mDialog;
-//	private JButton confirmBtn, cancelBtn;
-//	private JTextField hostField, portField;
-//	private String destAddress;
-//	private int destPort;
-//	private void initDialog(){
-//	    JPanel mPanel = new JPanel();
-//        GridLayout mLayout = new GridLayout(0,2);
-//        mLayout.setHgap(10);
-//        mLayout.setVgap(10);
-//        JLabel hostLabel = new JLabel("IP地址：");
-//        JLabel portLabel = new JLabel("端口号：");
-//
-//        hostField = new JTextField();
-//        hostField.setColumns(16);
-//        portField = new JTextField();
-//        portField.setColumns(16);
-//        
-//        hostLabel.setLabelFor(hostField);
-//        portLabel.setLabelFor(portField);
-//        
-//        confirmBtn = new JButton("确定");
-//        cancelBtn = new JButton("取消");
-//        confirmBtn.addActionListener(this);
-//        cancelBtn.addActionListener(this);
-//
-//        mPanel.setBorder(BorderFactory.createEmptyBorder(10, 10, 10, 10));
-////        mPanel.setPreferredSize(new Dimension(400, 0));
-//        mPanel.setLayout(mLayout);
-//        mPanel.add(hostLabel);
-//        mPanel.add(hostField);
-//        mPanel.add(portLabel);
-//        mPanel.add(portField);
-//        mPanel.add(confirmBtn);
-//        mPanel.add(cancelBtn);
-//        
-//        mDialog = new JDialog(this,true);
-//        mDialog.setTitle("输入IP和端口号");
-//        mDialog.getContentPane().add(mPanel);
-//        mDialog.pack();   
-//	}
-//
-//    private void showDialog(){
-//	    if(null == mDialog){
-//	        initDialog();
-//	    }
-//        mDialog.setVisible(true);   
-//	}
-//	private void hideDialog(){
-//        mDialog.setVisible(false);
-//	}
 	
 	// private SimpleHttpServer httpServer;
 	@Override
@@ -175,17 +184,36 @@ public class MainFrame extends JFrame implements ActionListener {
         }else
 		if(item.equals(stopServerMI)){
 		    socketConn.stopServerSocket();
-		}
+		}else
+	    if(item.equals(openClientWindow)){
+            showDialog();
+	    }else
+        if(item.equals(confirmBtn)){
+            String serverAddress = hostField.getText();
+            int serverPort;
+            String portStr = portField.getText();
+            if((null != serverAddress) && (null != portStr)){
+                serverPort = Integer.parseInt(portStr);
+//              myLog("You want to connet to server " + destAddress + ": " + destPort);
+                portField.setText("");
+                portField.setText("");
+            }            
+            this.hideDialog();
+            ChatWindow clientWindow = new ChatWindow(this, serverAddress, 500, 650);
+            clientWindow.open();
+        }else
+        if(item.equals(cancelBtn)){
+            portField.setText("");
+            portField.setText("");
+            this.hideDialog();      
+        }        
 	}
 
 
 	public static void main(String[] args){
-	    int WIDTH = 500;
-	    int HEIGHT = 300;
-        MainFrame userFrame = new MainFrame();
-        userFrame.setPreferredSize(new Dimension(WIDTH, HEIGHT));
-        userFrame.pack();
-        userFrame.setVisible(true);
+        MainFrame mainFrame = new MainFrame();
+        mainFrame.pack();
+        mainFrame.setVisible(true);
 	}
 }
 
