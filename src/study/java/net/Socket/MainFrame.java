@@ -200,6 +200,9 @@ public class MainFrame extends JFrame implements ActionListener {
             this.myLog("", address);
         }
     }
+    public void sendMessage(String address, JSONObject msgObj){
+        this.socketConn.sendMessage(address, PORT, msgObj);
+    }
 	
 	// private SimpleHttpServer httpServer;
 	@Override

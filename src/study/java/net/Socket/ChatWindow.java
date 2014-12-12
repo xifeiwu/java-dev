@@ -27,6 +27,8 @@ import javax.swing.JScrollPane;
 import javax.swing.JTextArea;
 import javax.swing.JTextField;
 
+import org.json.JSONObject;
+
 
 @SuppressWarnings("serial")
 public class ChatWindow extends JFrame implements ActionListener {
@@ -48,11 +50,13 @@ public class ChatWindow extends JFrame implements ActionListener {
 //	private final int NONE = 0, SOCKETCLIENT = 1, HTTPCLIENT = 2;
 
 	private MainFrame mainFrame;
+	private String address;
 //	private SocketConnection socketConn;
 
-	public ChatWindow(MainFrame main, String title, int width, int height) {
-		this.setTitle(title);
+	public ChatWindow(MainFrame main, String address, int width, int height) {
+		this.setTitle(address);
 		mainFrame = main;
+		address = address;
 		menuBar = new JMenuBar();
 		container = this.getContentPane();
 
@@ -152,7 +156,9 @@ public class ChatWindow extends JFrame implements ActionListener {
 			// System.out.println("sendTextField");
 			String text = sendTextField.getText();
 			if (!text.equals("")) {
-//				socketConn.sendMessage(text);
+			    JSONObject msgObj = new JSONObject();
+			    msgObj.put("message", text);
+				this.mainFrame.sendMessage(address, msgObj);
                 sendTextField.setText("");
 			}
 		}
