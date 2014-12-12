@@ -27,6 +27,8 @@ import javax.swing.JScrollPane;
 import javax.swing.JTextArea;
 import javax.swing.JTextField;
 
+import org.json.JSONObject;
+
 
 @SuppressWarnings("serial")
 public class MainFrame extends JFrame implements ActionListener {
@@ -79,13 +81,25 @@ public class MainFrame extends JFrame implements ActionListener {
 		});
 
 		socketConn = new SocketConnection(this);
-        eventQueue = Toolkit.getDefaultToolkit().getSystemEventQueue();
+//        eventQueue = Toolkit.getDefaultToolkit().getSystemEventQueue();
 	}
-
-	public void myLog(String name, String msg){
-        eventQueue.postEvent( new LOGAWTEvent( this, name, msg));
-	}
-    public void processLog(String name, String msg){
+    
+//    private EventQueue eventQueue = null;
+//	public void myLog(String name, String msg){
+//        eventQueue.postEvent( new LOGAWTEvent( this, name, msg));
+//	}
+//    @Override
+//    protected void processEvent(AWTEvent e) {
+//        // TODO Auto-generated method stub
+//        if ( e instanceof LOGAWTEvent )
+//        {
+//            LOGAWTEvent ev = (LOGAWTEvent) e;
+//            processLog(ev.getName(), ev.getMessage());
+//        }else{
+//            super.processEvent(e);
+//        }
+//    }
+    public void myLog(String name, String msg){
         int hour, minute, second;
         calendar.setTimeInMillis(System.currentTimeMillis());
         hour = calendar.get(Calendar.HOUR_OF_DAY);
@@ -95,19 +109,8 @@ public class MainFrame extends JFrame implements ActionListener {
         historyTextArea.append(content + "\n");
         System.out.println(content);
     }
-    
-    private EventQueue eventQueue = null;
-    @Override
-    protected void processEvent(AWTEvent e) {
-        // TODO Auto-generated method stub
-        if ( e instanceof LOGAWTEvent )
-        {
-            LOGAWTEvent ev = (LOGAWTEvent) e;
-//            System.out.print(ev.getName());
-            processLog(ev.getName(), ev.getMessage());
-        }else{
-            super.processEvent(e);
-        }
+    public void processMsgObj(JSONObject msgObj){
+        System.out.println(msgObj.toString());
     }
     
 //	private JDialog mDialog;

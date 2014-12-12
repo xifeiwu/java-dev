@@ -19,6 +19,8 @@ import java.util.Enumeration;
 import java.util.HashMap;
 import java.util.Map;
 
+import org.json.JSONObject;
+
 
 
 public class SocketConnection {
@@ -43,7 +45,7 @@ public class SocketConnection {
     }
     public void stopServerSocket(){
         if((null != ServerThread) && (!mServerSocket.isClosed())){
-            stopClientSocket();
+//            stopClientSocket();
             ServerThread.interrupt();
             try {
                 //the new Socket below is used to interrupt ServerSocket.accept() to avoid 
@@ -61,8 +63,7 @@ public class SocketConnection {
     }
     private ServerSocket mServerSocket;
     private Socket remoteSocket;
-    private Map<String, Socket> socketPool = new HashMap<String,Socket>();
-//    private boolean serverThreadFlag = false;
+//    private Map<String, Socket> socketPool = new HashMap<String,Socket>();
     private Runnable ServerRunnable = new Runnable() {
         @Override
         public void run() {
@@ -76,121 +77,191 @@ public class SocketConnection {
                 mServerSocket.setReuseAddress(true);
                 while (!Thread.currentThread().isInterrupted()) {
                     remoteSocket = mServerSocket.accept();
-                    String remoteSocketName = getSocketName(remoteSocket);
-                    myLog("LOG", remoteSocketName + " is Connected.");
-                    socketPool.put(remoteSocketName, remoteSocket);
+//                    String remoteSocketName = getSocketName(remoteSocket);
+                    mFrame.processMsgObj(getMessage(remoteSocket));
+//                    myLog("LOG", remoteSocketName + " is Connected.");
+//                    socketPool.put(getSocketAddress(remoteSocket), remoteSocket);
                 }
-                startChatting(remoteSocket);
+//                startChatting(remoteSocket);
             } catch (IOException e) {
                 myLog("LOG", "Exception In ServerRunnable IOException, As Below:");
                 e.printStackTrace();
             }
         }
     };
-
-    public boolean startClientSocket(String address, int port){
+    private JSONObject getMessage(Socket socket){
+        BufferedReader input;
+        String message = null;
+        JSONObject msgObj = new JSONObject();
+        msgObj.put("address", this.getSocketAddress(socket));
+        msgObj.put("port", this.getSocketPort(socket));
         try {
-            remoteSocket = new Socket(address, port);
+            input = getReader(socket);
+            message = input.readLine();
+            if (message != null) {
+                msgObj.put("content", message);
+            }
+            input.close();
+        } catch (IOException e) {
+            myLog("ReceivingRunnable Exception", "IOException, As Below:");
+            e.printStackTrace();
+        }
+        return msgObj;
+    }
+
+    private Socket connectToServerSocket(String address, int port){
+        Socket serverSocket = null;
+        try {
+            serverSocket = new Socket(address, port);
             try{
-                remoteSocket.sendUrgentData(0xFF);
+                serverSocket.sendUrgentData(0xFF);
             }catch(Exception ex){
-                myLog("startClientSocket Error", "ServerSocket " + address + ":" + port +" is NOT open.");
-                return false;
+                myLog("startClientSocket Exception", "ServerSocket " + address + ":" + port +" is NOT open.");
+                return null;
             }
         } catch (UnknownHostException e) {
             // TODO Auto-generated catch block
-            myLog("startClientSocket Error", "UnknownHostException, As Below:");
+            myLog("startClientSocket Exception", "UnknownHostException, As Below:");
             e.printStackTrace();
+            return null;
         } catch (IOException e) {
             // TODO Auto-generated catch block
-            myLog("startClientSocket Error", "IOException, As Below:");
+            myLog("startClientSocket Exception", "IOException, As Below:");
             e.printStackTrace();
+            return null;
         }
-        myLog("LOG", "Socket Connection to " + address + ":" + port + " Success.");
-        startChatting(remoteSocket);
-        return true;
+        return serverSocket;
+        
     }
-
-    public void stopClientSocket() {
-        this.stopChatting();
-        if ((null != remoteSocket) && (!remoteSocket.isClosed())) {
+    public boolean sendMessage(String address, int port,  JSONObject msgObj) {
+        boolean isOK = false;
+        Socket socket = connectToServerSocket(address, port);
+        if(null != socket){
+            PrintWriter out = this.getWriter(socket);
+            if(null != out){
+                out.println(msgObj.toString());
+                out.flush();
+                isOK = true;
+            }else{
+                isOK = false;
+            }
+        } else {
+            isOK = false;
+        }
+        if(isOK){
             try {
-                remoteSocket.close();
-                myLog("LOG", getSocketName(remoteSocket) + " has closed.");
+                socket.close();
             } catch (IOException e) {
                 // TODO Auto-generated catch block
-                myLog("LOG", "Exception In stopClientSocket IOException, As Below:");
+                isOK = false;
                 e.printStackTrace();
             }
-        }
-    }
-
-    private Socket destSocket;
-    private String destName;
-    private Thread ReceivingThread;
-    private void startChatting(Socket socket){
-        destSocket = socket;
-        destName = getSocketName(socket);
-        ReceivingThread = new Thread(ReceivingRunnable);
-        ReceivingThread.start();
-    }
-    private void stopChatting(){
-        if((null != ReceivingThread) && (ReceivingThread.isAlive())){
-            ReceivingThread.interrupt();
-            destSocket = null;
-        }else{
-            myLog("LOG", "Receiving Thread is Not Start.");
-        }
-    }
-    private Runnable ReceivingRunnable = new Runnable() {
-        @Override
-        public void run() {
-            BufferedReader input;
-            try {
-                input = getReader(destSocket);
-                while (!Thread.currentThread().isInterrupted()) {
-                    String messageStr = null;
-                    messageStr = input.readLine();
-                    if (messageStr != null) {
-                        myLog(destName, messageStr);
-                    } else {
-//                        break;
-                    }
-                }
-                input.close();
-            } catch (IOException e) {
-                myLog("ReceivingRunnable Error", "IOException, As Below:");
-                e.printStackTrace();
-            }
-        }
-    };
-
-    public boolean sendMessage(String msg) {
-        boolean isOK = false;
-        try {
-            if (destSocket == null) {
-                myLog("sendMessage Error", "destSocket is null");
-            } else if (destSocket.getOutputStream() == null) {
-                myLog("sendMessage Error", "destSocket output stream is null.");
-            } else {
-                PrintWriter out = this.getWriter(destSocket);
-                out.println(msg);
-                out.flush();
-                myLog("I say", msg);
-                isOK = true;
-            }
-        } catch (UnknownHostException e) {
-            myLog("sendMessage Error", "UnknownHostException, As Below:");
-            e.printStackTrace();
-        } catch (IOException e) {
-            myLog("sendMessage Error", "IOException, As Below:");
-            e.printStackTrace();
-        } catch (Exception e) {
-            myLog("sendMessage Error", "Exception, As Below:");
-            e.printStackTrace();
         }
         return isOK;
     }
+
+//    public boolean startClientSocket(String address, int port){
+//        try {
+//            remoteSocket = new Socket(address, port);
+//            try{
+//                remoteSocket.sendUrgentData(0xFF);
+//            }catch(Exception ex){
+//                myLog("startClientSocket Exception", "ServerSocket " + address + ":" + port +" is NOT open.");
+//                return false;
+//            }
+//        } catch (UnknownHostException e) {
+//            // TODO Auto-generated catch block
+//            myLog("startClientSocket Exception", "UnknownHostException, As Below:");
+//            e.printStackTrace();
+//        } catch (IOException e) {
+//            // TODO Auto-generated catch block
+//            myLog("startClientSocket Exception", "IOException, As Below:");
+//            e.printStackTrace();
+//        }
+//        myLog("LOG", "Socket Connection to " + address + ":" + port + " Success.");
+//        startChatting(remoteSocket);
+//        return true;
+//    }
+
+//    public void stopClientSocket() {
+//        this.stopChatting();
+//        if ((null != remoteSocket) && (!remoteSocket.isClosed())) {
+//            try {
+//                remoteSocket.close();
+//                myLog("LOG", getSocketName(remoteSocket) + " has closed.");
+//            } catch (IOException e) {
+//                // TODO Auto-generated catch block
+//                myLog("LOG", "Exception In stopClientSocket IOException, As Below:");
+//                e.printStackTrace();
+//            }
+//        }
+//    }
+//
+//    private Socket destSocket;
+//    private String destName;
+//    private Thread ReceivingThread;
+//    private void startChatting(Socket socket){
+//        destSocket = socket;
+//        destName = getSocketName(socket);
+//        ReceivingThread = new Thread(ReceivingRunnable);
+//        ReceivingThread.start();
+//    }
+//    private void stopChatting(){
+//        if((null != ReceivingThread) && (ReceivingThread.isAlive())){
+//            ReceivingThread.interrupt();
+//            destSocket = null;
+//        }else{
+//            myLog("LOG", "Receiving Thread is Not Start.");
+//        }
+//    }
+//    private Runnable ReceivingRunnable = new Runnable() {
+//        @Override
+//        public void run() {
+//            BufferedReader input;
+//            try {
+//                input = getReader(destSocket);
+//                while (!Thread.currentThread().isInterrupted()) {
+//                    String messageStr = null;
+//                    messageStr = input.readLine();
+//                    if (messageStr != null) {
+//                        myLog(destName, messageStr);
+//                    } else {
+//                    }
+//                }
+//                input.close();
+//            } catch (IOException e) {
+//                myLog("ReceivingRunnable Exception", "IOException, As Below:");
+//                e.printStackTrace();
+//            }
+//        }
+//    };
+//
+//    public boolean sendMessage(String msg) {
+//        boolean isOK = false;
+//        try {
+//            if (destSocket == null) {
+//                myLog("sendMessage Exception", "destSocket is null");
+//            } else if (destSocket.getOutputStream() == null) {
+//                myLog("sendMessage Exception", "destSocket output stream is null.");
+//            } else {
+//                PrintWriter out = this.getWriter(destSocket);
+//                out.println(msg);
+//                out.flush();
+//                myLog("I say", msg);
+//                isOK = true;
+//            }
+//        } catch (UnknownHostException e) {
+//            myLog("sendMessage Exception", "UnknownHostException, As Below:");
+//            e.printStackTrace();
+//        } catch (IOException e) {
+//            myLog("sendMessage Exception", "IOException, As Below:");
+//            e.printStackTrace();
+//        } catch (Exception e) {
+//            myLog("sendMessage Exception", "Exception, As Below:");
+//            e.printStackTrace();
+//        }
+//        return isOK;
+//    }
 
     private PrintWriter getWriter(Socket socket){// throws IOException
         PrintWriter pw = null;
@@ -218,11 +289,21 @@ public class SocketConnection {
         return bufferedReader;
     }
 
+    private String getSocketAddress(Socket socket){
+        String address = socket.getInetAddress().toString().substring(1);
+        return address;
+    }
+
+    private int getSocketPort(Socket socket){
+        int port = socket.getPort();
+        return port;
+    }
+    
     private String getSocketName(Socket socket){
         String destName;
-        String address = socket.getInetAddress().toString().substring(1);
-        int port = socket.getPort();
-        destName = address + ":" + port;
+//        String address = socket.getInetAddress().toString().substring(1);
+//        int port = socket.getPort();
+        destName = getSocketAddress(socket) + ":" + getSocketPort(socket);
         return destName;
     }
     
@@ -247,7 +328,7 @@ public class SocketConnection {
                 }
             }
         } catch (SocketException se) {
-            myLog("LOG", "Exception In getLocalIP SocketException, As Below:");
+            myLog("getLocalIP Exception", "SocketException, As Below:");
             se.printStackTrace();
         }
         return address;
