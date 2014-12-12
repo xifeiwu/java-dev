@@ -12,6 +12,9 @@ import java.awt.event.ActionListener;
 import java.awt.event.WindowAdapter;
 import java.awt.event.WindowEvent;
 import java.util.Calendar;
+import java.util.HashMap;
+import java.util.Iterator;
+import java.util.Map;
 
 import javax.swing.BorderFactory;
 import javax.swing.JButton;
@@ -35,7 +38,7 @@ public class MainFrame extends JFrame implements ActionListener {
 
 	private JMenuBar menuBar;
     private JMenu serverMenu;
-    private JMenuItem startSocketServerMI, stopServerMI, openClientWindow;
+    private JMenuItem startSocketServerMI, stopServerMI, openChatWindow, chatWindowList;
 
 	private Container container;
 	private JTextArea historyTextArea;
@@ -47,6 +50,7 @@ public class MainFrame extends JFrame implements ActionListener {
 	private  int WIDTH = 500, HEIGHT = 300; 
 	private Dimension screenSize =Toolkit.getDefaultToolkit().getScreenSize();
 	private SocketConnection socketConn;
+	private int PORT = 7777;
 
 	public MainFrame() {
 		this.setTitle("用户界面");
@@ -55,13 +59,16 @@ public class MainFrame extends JFrame implements ActionListener {
 		container = this.getContentPane();
 		
 		serverMenu = new JMenu("服务器设置");
-        openClientWindow = new JMenuItem("打开客户端窗口");
+        openChatWindow = new JMenuItem("打开客户端窗口");
+        chatWindowList = new JMenuItem("客户端窗口列表");
         startSocketServerMI = new JMenuItem("开启ServerSocket");
         stopServerMI = new JMenuItem("关闭ServerSocket");
-        openClientWindow.addActionListener(this);
+        openChatWindow.addActionListener(this);
+        chatWindowList.addActionListener(this);
         startSocketServerMI.addActionListener(this);
         stopServerMI.addActionListener(this);
-        serverMenu.add(openClientWindow);
+        serverMenu.add(openChatWindow);
+        serverMenu.add(chatWindowList);
         serverMenu.add(startSocketServerMI);
         serverMenu.add(stopServerMI);
 		menuBar.add(serverMenu);
@@ -110,8 +117,6 @@ public class MainFrame extends JFrame implements ActionListener {
     private JDialog mDialog;
     private JButton confirmBtn, cancelBtn;
     private JTextField hostField, portField;
-//    private String destAddress;
-//    private int destPort;
     private void initDialog(){
         JPanel mPanel = new JPanel();
         GridLayout mLayout = new GridLayout(0,2);
@@ -171,8 +176,30 @@ public class MainFrame extends JFrame implements ActionListener {
     }
     public void processMsgObj(JSONObject msgObj){
         System.out.println(msgObj.toString());
+        openChatWindow(msgObj.getString("address"));
     }
-    
+
+    private Map<String, ChatWindow> chatWindowManager = new HashMap<String, ChatWindow>();
+    public void openChatWindow(String address){
+        ChatWindow clientWindow;
+        if(chatWindowManager.containsKey(address)){
+            clientWindow = chatWindowManager.get(address);
+        }else{
+            clientWindow = new ChatWindow(this, address, 500, 650);
+            chatWindowManager.put(address, clientWindow);
+        }
+        if(!clientWindow.isVisible()){
+            clientWindow.open();
+        }
+    }
+    public void showChatWindowList(){
+        String address;
+        Iterator<String> iter = chatWindowManager.keySet().iterator();
+        while (iter.hasNext()) {
+            address = iter.next();
+            this.myLog("", address);
+        }
+    }
 	
 	// private SimpleHttpServer httpServer;
 	@Override
@@ -180,27 +207,29 @@ public class MainFrame extends JFrame implements ActionListener {
 		// TODO Auto-generated method stub
 		JComponent item = (JComponent) e.getSource();
         if (item.equals(startSocketServerMI)) {
-            socketConn.startServerSocket(9090);
+            socketConn.startServerSocket(PORT);
         }else
 		if(item.equals(stopServerMI)){
 		    socketConn.stopServerSocket();
 		}else
-	    if(item.equals(openClientWindow)){
+	    if(item.equals(openChatWindow)){
             showDialog();
 	    }else
+        if(item.equals(chatWindowList)){
+            showChatWindowList();
+        }else	        
         if(item.equals(confirmBtn)){
-            String serverAddress = hostField.getText();
+            String remoteAddress = hostField.getText();
             int serverPort;
             String portStr = portField.getText();
-            if((null != serverAddress) && (null != portStr)){
+            if((null != remoteAddress) && (null != portStr)){
                 serverPort = Integer.parseInt(portStr);
 //              myLog("You want to connet to server " + destAddress + ": " + destPort);
                 portField.setText("");
                 portField.setText("");
             }            
             this.hideDialog();
-            ChatWindow clientWindow = new ChatWindow(this, serverAddress, 500, 650);
-            clientWindow.open();
+            openChatWindow(remoteAddress);
         }else
         if(item.equals(cancelBtn)){
             portField.setText("");
