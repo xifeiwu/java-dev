@@ -50,13 +50,13 @@ public class ChatWindow extends JFrame implements ActionListener {
 //	private final int NONE = 0, SOCKETCLIENT = 1, HTTPCLIENT = 2;
 
 	private MainFrame mainFrame;
-	private String address;
+	private String chatAddress;
 //	private SocketConnection socketConn;
 
 	public ChatWindow(MainFrame main, String address, int width, int height) {
 		this.setTitle(address);
 		mainFrame = main;
-		this.address = address;
+		chatAddress = address;
 		menuBar = new JMenuBar();
 		container = this.getContentPane();
 
@@ -158,7 +158,7 @@ public class ChatWindow extends JFrame implements ActionListener {
 			if (!text.equals("")) {
 			    JSONObject msgObj = new JSONObject();
 			    msgObj.put("message", text);
-			    if(mainFrame.sendMessage(address, msgObj)){
+			    if(mainFrame.sendMessage(chatAddress, msgObj)){
                     sendTextField.setText("");
                     this.myLog("I say", text);
 			    }
