@@ -37,6 +37,7 @@ public class SocketConnection {
     private Thread ServerThread;
     public void startServerSocket(int port){
         nPort = port;
+        startServerRunnable = true;
         ServerThread = new Thread(ServerRunnable);
         ServerThread.start();
     }
@@ -44,6 +45,7 @@ public class SocketConnection {
         if((null != ServerThread) && (!mServerSocket.isClosed())){
 //            stopClientSocket();
             ServerThread.interrupt();
+            startServerRunnable = false;
             try {
                 //the new Socket below is used to interrupt ServerSocket.accept() to avoid 
                 //java.net.SocketException: Socket closed
@@ -60,6 +62,7 @@ public class SocketConnection {
     }
     private ServerSocket mServerSocket;
     private Socket remoteSocket;
+    private boolean startServerRunnable = true;
 //    private Map<String, Socket> socketPool = new HashMap<String,Socket>();
     private Runnable ServerRunnable = new Runnable() {
         @Override
@@ -72,14 +75,10 @@ public class SocketConnection {
                 myLog("LOG", "ServerSocket " + mAddress + ":" + nPort + " has started");
                 mServerSocket = new ServerSocket(nPort);
                 mServerSocket.setReuseAddress(true);
-                while (!Thread.currentThread().isInterrupted()) {
+                while (!Thread.currentThread().isInterrupted() && startServerRunnable) {
                     remoteSocket = mServerSocket.accept();
-//                    String remoteSocketName = getSocketName(remoteSocket);
                     mFrame.processMsgObj(getMessage(remoteSocket));
-//                    myLog("LOG", remoteSocketName + " is Connected.");
-//                    socketPool.put(getSocketAddress(remoteSocket), remoteSocket);
                 }
-//                startChatting(remoteSocket);
             } catch (IOException e) {
                 myLog("LOG", "Exception In ServerRunnable IOException, As Below:");
                 e.printStackTrace();
@@ -95,8 +94,11 @@ public class SocketConnection {
         try {
             input = getReader(socket);
             message = input.readLine();
-            if (message != null) {
+            if((message != null) && (new JSONObject(message).has("message"))){
+                msgObj.put("state", "ok");
                 msgObj.put("content", message);
+            }else{
+                msgObj.put("state", "error");
             }
             input.close();
         } catch (IOException e) {

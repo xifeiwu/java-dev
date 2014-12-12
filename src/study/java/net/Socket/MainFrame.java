@@ -176,11 +176,23 @@ public class MainFrame extends JFrame implements ActionListener {
         System.out.println(content);
     }
     public void processMsgObj(JSONObject msgObj){
-//        System.out.println(msgObj.toString());
-        String address = msgObj.getString("address");
-        ChatWindow chatWindow = getChatWindow(address);
-        JSONObject contentObj = new JSONObject(msgObj.getString("content"));
-        chatWindow.myLog(address, contentObj.getString("message"));
+        System.out.println(msgObj.toString());
+        String state = null;
+        if(msgObj.has("state")){
+            state = msgObj.getString("state");            
+        }
+        if(state.equals("ok")){
+            String address = msgObj.getString("address");
+            ChatWindow chatWindow = getChatWindow(address);
+            JSONObject contentObj = new JSONObject(msgObj.getString("content"));
+            chatWindow.myLog(address, contentObj.getString("message"));
+        }else{
+            myLog("processMsgObj Error", "received an unrecognized packet.");            
+        }
+    }
+    public boolean sendMessage(String address, JSONObject msgObj){
+        System.out.println("send message to " + address + ":" + PORT + ", content:" + msgObj.toString());
+        return socketConn.sendMessage(address, PORT, msgObj);
     }
 
     private Map<String, ChatWindow> chatWindowManager = new HashMap<String, ChatWindow>();
@@ -201,10 +213,6 @@ public class MainFrame extends JFrame implements ActionListener {
             address = iter.next();
             this.myLog("ChatWindow", address);
         }
-    }
-    public boolean sendMessage(String address, JSONObject msgObj){
-        System.out.println("send message to " + address + ":" + PORT + ", content:" + msgObj.toString());
-        return socketConn.sendMessage(address, PORT, msgObj);
     }
 	
 	// private SimpleHttpServer httpServer;
