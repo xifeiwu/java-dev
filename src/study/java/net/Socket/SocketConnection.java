@@ -100,7 +100,7 @@ public class SocketConnection {
             }
             input.close();
         } catch (IOException e) {
-            myLog("ReceivingRunnable Exception", "IOException, As Below:");
+            myLog("getMessage Exception", "IOException, As Below:");
             e.printStackTrace();
         }
         return msgObj;

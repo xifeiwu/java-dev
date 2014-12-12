@@ -165,22 +165,26 @@ public class MainFrame extends JFrame implements ActionListener {
     }
     
     public void myLog(String name, String msg){
-        int hour, minute, second;
-        calendar.setTimeInMillis(System.currentTimeMillis());
-        hour = calendar.get(Calendar.HOUR_OF_DAY);
-        minute = calendar.get(Calendar.MINUTE);
-        second = calendar.get(Calendar.SECOND);
-        String content = name + "（" + hour + ":" + minute + ":" + second + "）：" + msg;
+//        int hour, minute, second;
+//        calendar.setTimeInMillis(System.currentTimeMillis());
+//        hour = calendar.get(Calendar.HOUR_OF_DAY);
+//        minute = calendar.get(Calendar.MINUTE);
+//        second = calendar.get(Calendar.SECOND);
+//        "（" + hour + ":" + minute + ":" + second + "）："
+        String content = name + ": " + msg;
         historyTextArea.append(content + "\n");
         System.out.println(content);
     }
     public void processMsgObj(JSONObject msgObj){
-        System.out.println(msgObj.toString());
-        openChatWindow(msgObj.getString("address"));
+//        System.out.println(msgObj.toString());
+        String address = msgObj.getString("address");
+        ChatWindow chatWindow = getChatWindow(address);
+        JSONObject contentObj = new JSONObject(msgObj.getString("content"));
+        chatWindow.myLog(address, contentObj.getString("message"));
     }
 
     private Map<String, ChatWindow> chatWindowManager = new HashMap<String, ChatWindow>();
-    public void openChatWindow(String address){
+    public ChatWindow getChatWindow(String address){
         ChatWindow clientWindow;
         if(chatWindowManager.containsKey(address)){
             clientWindow = chatWindowManager.get(address);
@@ -188,20 +192,19 @@ public class MainFrame extends JFrame implements ActionListener {
             clientWindow = new ChatWindow(this, address, 500, 650);
             chatWindowManager.put(address, clientWindow);
         }
-        if(!clientWindow.isVisible()){
-            clientWindow.open();
-        }
+        return clientWindow;
     }
     public void showChatWindowList(){
         String address;
         Iterator<String> iter = chatWindowManager.keySet().iterator();
         while (iter.hasNext()) {
             address = iter.next();
-            this.myLog("", address);
+            this.myLog("ChatWindow", address);
         }
     }
-    public void sendMessage(String address, JSONObject msgObj){
-        this.socketConn.sendMessage(address, PORT, msgObj);
+    public boolean sendMessage(String address, JSONObject msgObj){
+        System.out.println("send message to " + address + ":" + PORT + ", content:" + msgObj.toString());
+        return socketConn.sendMessage(address, PORT, msgObj);
     }
 	
 	// private SimpleHttpServer httpServer;
@@ -230,9 +233,12 @@ public class MainFrame extends JFrame implements ActionListener {
 //              myLog("You want to connet to server " + destAddress + ": " + destPort);
                 portField.setText("");
                 portField.setText("");
-            }            
-            this.hideDialog();
-            openChatWindow(remoteAddress);
+            }
+            ChatWindow chatWindow = getChatWindow(remoteAddress);
+            if(null != chatWindow){
+                this.hideDialog();
+                chatWindow.open();
+            }
         }else
         if(item.equals(cancelBtn)){
             portField.setText("");
