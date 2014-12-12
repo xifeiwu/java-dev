@@ -77,7 +77,7 @@ public class SocketConnection {
                 mServerSocket.setReuseAddress(true);
                 while (!Thread.currentThread().isInterrupted() && startServerRunnable) {
                     remoteSocket = mServerSocket.accept();
-                    mFrame.processMsgObj(getMessage(remoteSocket));
+                    mFrame.processMsgObj(getAndWrapMessage(remoteSocket));
                 }
             } catch (IOException e) {
                 myLog("LOG", "Exception In ServerRunnable IOException, As Below:");
@@ -85,7 +85,7 @@ public class SocketConnection {
             }
         }
     };
-    private JSONObject getMessage(Socket socket){
+    private JSONObject getAndWrapMessage(Socket socket){
         BufferedReader input;
         String message = null;
         JSONObject msgObj = new JSONObject();
@@ -95,16 +95,14 @@ public class SocketConnection {
             input = getReader(socket);
             message = input.readLine();
             if((message != null) && (new JSONObject(message).has("message"))){
-                msgObj.put("state", "ok");
                 msgObj.put("content", message);
-            }else{
-                msgObj.put("state", "error");
             }
             input.close();
         } catch (IOException e) {
             myLog("getMessage Exception", "IOException, As Below:");
             e.printStackTrace();
         }
+        System.out.println("getAndWrapMessage: " + msgObj.toString());
         return msgObj;
     }
 

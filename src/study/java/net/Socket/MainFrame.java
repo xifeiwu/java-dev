@@ -176,14 +176,13 @@ public class MainFrame extends JFrame implements ActionListener {
         System.out.println(content);
     }
     public void processMsgObj(JSONObject msgObj){
-        System.out.println(msgObj.toString());
-        String state = null;
-        if(msgObj.has("state")){
-            state = msgObj.getString("state");            
-        }
-        if(state.equals("ok")){
+        System.out.println("processMsgObj: " + msgObj.toString());
+        if(msgObj.has("content")){
             String address = msgObj.getString("address");
             ChatWindow chatWindow = getChatWindow(address);
+            if(!chatWindow.isVisible()){
+                chatWindow.open();
+            }
             JSONObject contentObj = new JSONObject(msgObj.getString("content"));
             chatWindow.myLog(address, contentObj.getString("message"));
         }else{
@@ -191,7 +190,7 @@ public class MainFrame extends JFrame implements ActionListener {
         }
     }
     public boolean sendMessage(String address, JSONObject msgObj){
-        System.out.println("send message to " + address + ":" + PORT + ", content:" + msgObj.toString());
+        System.out.println("sendMessage: " + address + ":" + PORT + ", content:" + msgObj.toString());
         return socketConn.sendMessage(address, PORT, msgObj);
     }
 
