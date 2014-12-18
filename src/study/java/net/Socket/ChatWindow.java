@@ -158,9 +158,14 @@ public class ChatWindow extends JFrame implements ActionListener {
 			if (!text.equals("")) {
 			    JSONObject msgObj = new JSONObject();
 			    msgObj.put("message", text);
+                msgObj.put("to", this.chatAddress);
+			    msgObj.put("time", System.currentTimeMillis());
+                msgObj.put("type", "app1");
 			    if(mainFrame.sendMessage(chatAddress, msgObj)){
                     sendTextField.setText("");
                     this.myLog("I say", text);
+			    }else{
+                    this.myLog("actionPerformed", "Send Message " + text + " Fail.");			        
 			    }
 			}
 		}

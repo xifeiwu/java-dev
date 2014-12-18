@@ -190,7 +190,7 @@ public class MainFrame extends JFrame implements ActionListener {
         }
     }
     public boolean sendMessage(String address, JSONObject msgObj){
-        System.out.println("sendMessage: " + address + ":" + PORT + ", content:" + msgObj.toString());
+        System.out.println("Origin Message to: " + address + ":" + PORT + ", " + msgObj.toString());
         return socketConn.sendMessage(address, PORT, msgObj);
     }
 

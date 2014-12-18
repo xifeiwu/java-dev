@@ -15,7 +15,14 @@ import java.net.ServerSocket;
 import java.net.Socket;
 import java.net.SocketException;
 import java.net.UnknownHostException;
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
+import java.util.Date;
 import java.util.Enumeration;
+import java.util.Timer;
+import java.util.TimerTask;
+
+import org.json.JSONException;
 import org.json.JSONObject;
 
 
@@ -113,17 +120,17 @@ public class SocketConnection {
             try{
                 serverSocket.sendUrgentData(0xFF);
             }catch(Exception ex){
-                myLog("startClientSocket Exception", "ServerSocket " + address + ":" + port +" is NOT open.");
+                myLog("connectToServerSocket Exception", "ServerSocket " + address + ":" + port +" is NOT open.");
                 return null;
             }
         } catch (UnknownHostException e) {
             // TODO Auto-generated catch block
-            myLog("startClientSocket Exception", "UnknownHostException, As Below:");
+            myLog("connectToServerSocket Exception", "UnknownHostException, As Below:");
             e.printStackTrace();
             return null;
         } catch (IOException e) {
             // TODO Auto-generated catch block
-            myLog("startClientSocket Exception", "IOException, As Below:");
+            myLog("connectToServerSocket Exception", "IOException, As Below:");
             e.printStackTrace();
             return null;
         }
@@ -132,13 +139,25 @@ public class SocketConnection {
     
     public boolean sendMessage(String address, int port, JSONObject msgObj) {
         boolean isOK = false;
+        msgObj.put("from", this.mAddress);
+        msgObj.put("uuid", this.mAddress);
+//        String objContent = msgObj.toString();
+        JSONObject objToSend = new JSONObject();
+        objToSend.put("type", "SentEnFirst");
+        objToSend.put("content", msgObj.toString());
+        String strToSend = objToSend.toString();
+        System.out.println("Sending Message to Socket: " + address + ":" + port + ", " + strToSend);
         Socket socket = connectToServerSocket(address, port);
         if(null != socket){
             PrintWriter out = this.getWriter(socket);
             if(null != out){
-                out.println(msgObj.toString());
+                out.println(strToSend);
                 out.flush();
-                isOK = true;
+                if(waitAndCheckReply(socket, strToSend)){
+                    isOK = true;
+                }else{
+                    isOK = false;
+                }
             }else{
                 isOK = false;
             }
@@ -155,6 +174,81 @@ public class SocketConnection {
             }
         }
         return isOK;
+    }
+    private boolean waitAndCheckReply(Socket socket, String contentToSend){
+        boolean isOK = false;
+        //三秒没有反馈，关闭BufferReader。
+        Timer mTimer = new Timer();
+        mTimer.schedule(new CloseSocket(socket), 3000);
+        BufferedReader input = getReader(socket);
+        try {
+            if(null != input){
+                JSONObject msgObj = new JSONObject(input.readLine());
+                mTimer.cancel();
+                System.out.println("Reply Message From Socket: " + msgObj.toString());
+                System.out.println("String: " + contentToSend);
+                System.out.println(stringMD5(contentToSend));
+                isOK = true;
+                input.close();
+            } else {
+                myLog("waitAndCheckReply Exception", "BufferReader of Socket is null.");                
+            }
+        } catch (JSONException e) {
+            // TODO Auto-generated catch block
+            myLog("waitAndCheckReply Exception", "UnknownHostException, As Below:");
+            e.printStackTrace();
+        } catch (IOException e) {
+            // TODO Auto-generated catch block
+            myLog("waitAndCheckReply Exception", "IOException, As Below:");
+            e.printStackTrace();
+        }
+        return isOK;        
+    }
+    class CloseSocket extends TimerTask {
+        private Socket mSocket;
+        public CloseSocket(Socket socket){
+            this.mSocket = socket;
+        }            
+        @Override
+        public void run() {
+            try {
+                mSocket.close();
+                myLog("TimerTask CloseSocket", "Close Socket.");
+            } catch (IOException e) {
+                // TODO Auto-generated catch block
+                e.printStackTrace();
+            }
+        }
+    }
+    public String stringMD5(String input) {
+        try {
+            // 拿到一个MD5转换器（如果想要SHA1参数换成”SHA1”）
+            MessageDigest messageDigest = MessageDigest.getInstance("MD5");
+            // 输入的字符串转换成字节数组
+            byte[] inputByteArray = input.getBytes();
+            // inputByteArray是输入字符串转换得到的字节数组
+            messageDigest.update(inputByteArray);
+            // 转换并返回结果，也是字节数组，包含16个元素
+            byte[] resultByteArray = messageDigest.digest();
+            // 字符数组转换成字符串返回
+            return byteArrayToHex(resultByteArray);
+        } catch (NoSuchAlgorithmException e) {
+            return null;
+        }
+    }
+    public String byteArrayToHex(byte[] byteArray) {
+        // 首先初始化一个字符数组，用来存放每个16进制字符
+        char[] hexDigits = { '0', '1', '2', '3', '4', '5', '6', '7', '8', '9', 'A', 'B', 'C', 'D', 'E', 'F' };
+        // new一个字符数组，这个就是用来组成结果字符串的（解释一下：一个byte是八位二进制，也就是2位十六进制字符（2的8次方等于16的2次方））
+        char[] resultCharArray = new char[byteArray.length * 2];
+        // 遍历字节数组，通过位运算（位运算效率高），转换成字符放到字符数组中去
+        int index = 0;
+        for (byte b : byteArray) {
+            resultCharArray[index++] = hexDigits[b >>> 4 & 0xf];
+            resultCharArray[index++] = hexDigits[b & 0xf];
+        }
+        // 字符数组组合成字符串返回
+        return new String(resultCharArray);
     }
 
     private PrintWriter getWriter(Socket socket){
