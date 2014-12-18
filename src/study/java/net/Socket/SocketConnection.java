@@ -38,7 +38,9 @@ public class SocketConnection {
     }
 
     private void myLog(String name, String msg){
-        mFrame.myLog(name, msg);
+//        mFrame.myLog(name, msg);
+        String content = name + ": " + msg;
+        System.out.println(content);
     }
 
     private Thread ServerThread;
@@ -84,7 +86,13 @@ public class SocketConnection {
                 mServerSocket.setReuseAddress(true);
                 while (!Thread.currentThread().isInterrupted() && startServerRunnable) {
                     remoteSocket = mServerSocket.accept();
-                    mFrame.processMsgObj(getAndWrapMessage(remoteSocket));
+                    myLog("address", getSocketAddress(remoteSocket));
+                    myLog("port", ""+getSocketPort(remoteSocket));
+                    JSONObject mMsgObj = getAndWrapMessage(remoteSocket);
+                    if(mMsgObj != null){
+//                        replyMessage(remoteSocket, mMsgObj);
+//                        mFrame.processMsgObj(mMsgObj);
+                    }
                 }
             } catch (IOException e) {
                 myLog("LOG", "Exception In ServerRunnable IOException, As Below:");
@@ -94,23 +102,46 @@ public class SocketConnection {
     };
     private JSONObject getAndWrapMessage(Socket socket){
         BufferedReader input;
-        String message = null;
-        JSONObject msgObj = new JSONObject();
-        msgObj.put("address", this.getSocketAddress(socket));
-        msgObj.put("port", this.getSocketPort(socket));
+        JSONObject mMsgObj = new JSONObject();
+        mMsgObj.put("address", this.getSocketAddress(socket));
+        mMsgObj.put("port", this.getSocketPort(socket));
         try {
             input = getReader(socket);
-            message = input.readLine();
-            if((message != null) && (new JSONObject(message).has("message"))){
-                msgObj.put("content", message);
+            String message = input.readLine();
+            JSONObject msgObjFromRemote = new JSONObject(message);
+            if(msgObjFromRemote.has("type") && (msgObjFromRemote.getString("type").equals("SentEnFirst"))){
+                mMsgObj.put("content", msgObjFromRemote.getString("content"));                
+                myLog("getAndWrapMessage, Origin", message);
+                myLog("getAndWrapMessage, Wrapped", mMsgObj.toString());
+            }else{
+                myLog("getAndWrapMessage", "Ignore Message, " + message);
+                mMsgObj = null;
             }
             input.close();
         } catch (IOException e) {
             myLog("getMessage Exception", "IOException, As Below:");
             e.printStackTrace();
         }
-        System.out.println("getAndWrapMessage: " + msgObj.toString());
-        return msgObj;
+        return mMsgObj;
+    }
+    private void replyMessage(Socket socket, JSONObject mMsgObj){
+        JSONObject getContentObj = new JSONObject(mMsgObj.getString("content"));
+        JSONObject replyContentObj = new JSONObject();
+        replyContentObj.put("type", "Reply");
+        replyContentObj.put("from", mAddress);
+        replyContentObj.put("to", getContentObj.getString("from"));
+        replyContentObj.put("message", this.stringMD5(getContentObj.toString()));
+        replyContentObj.put("time", System.currentTimeMillis());
+        JSONObject replyObj = new JSONObject();
+        replyObj.put("type", "Reply");
+        replyObj.put("content", replyContentObj.toString());
+        myLog("replyMessage", replyObj.toString());
+        PrintWriter out = this.getWriter(socket);
+        if(null != out){
+            out.println(replyObj.toString());
+            out.flush();
+            out.close();
+        }
     }
 
     private Socket connectToServerSocket(String address, int port){
@@ -135,35 +166,28 @@ public class SocketConnection {
             return null;
         }
         return serverSocket;        
-    }
-    
+    }    
     public boolean sendMessage(String address, int port, JSONObject msgObj) {
         boolean isOK = false;
         msgObj.put("from", this.mAddress);
         msgObj.put("uuid", this.mAddress);
-//        String objContent = msgObj.toString();
         JSONObject objToSend = new JSONObject();
         objToSend.put("type", "SentEnFirst");
         objToSend.put("content", msgObj.toString());
         String strToSend = objToSend.toString();
         System.out.println("Sending Message to Socket: " + address + ":" + port + ", " + strToSend);
-        
-//        byte[] mBytes = strToSend.getBytes();
-//        System.out.println("Length: " + mBytes.length);
-//        for(int ttt = 0; ttt < mBytes.length; ttt++){
-//            System.out.println(ttt + ":" + mBytes[ttt]);
-//        }
         Socket socket = connectToServerSocket(address, port);
         if(null != socket){
             PrintWriter out = this.getWriter(socket);
             if(null != out){
                 out.println(strToSend);
                 out.flush();
-                if(waitAndCheckReply(socket, strToSend)){
-                    isOK = true;
-                }else{
-                    isOK = false;
-                }
+//                if(waitAndCheckReply(socket, msgObj.toString())){
+//                    isOK = true;
+//                }else{
+//                    isOK = false;
+//                }
+                isOK = true;
             }else{
                 isOK = false;
             }
@@ -185,14 +209,14 @@ public class SocketConnection {
         boolean isOK = false;
         //三秒没有反馈，关闭BufferReader。
         Timer mTimer = new Timer();
-        mTimer.schedule(new CloseSocket(socket), 3000);
+        mTimer.schedule(new CloseSocketTimerTask(socket), 3000);
         BufferedReader input = getReader(socket);
         try {
             if(null != input){
                 JSONObject msgObj = new JSONObject(input.readLine());
                 mTimer.cancel();
                 System.out.println("Reply Message From Socket: " + msgObj.toString());
-                System.out.println(stringMD5(msgToSend));
+//                System.out.println(stringMD5(msgToSend));
                 input.close();
                 if("Reply".equals(msgObj.getString("type"))){
                     if(msgObj.has("content")){
@@ -230,9 +254,9 @@ public class SocketConnection {
         return isOK;        
     }
     
-    class CloseSocket extends TimerTask {
+    class CloseSocketTimerTask extends TimerTask {
         private Socket mSocket;
-        public CloseSocket(Socket socket){
+        public CloseSocketTimerTask(Socket socket){
             this.mSocket = socket;
         }            
         @Override
@@ -262,7 +286,7 @@ public class SocketConnection {
             return null;
         }
     }
-    public String byteMD5(byte[] inputByteArray) {
+    private String byteMD5(byte[] inputByteArray) {
         try {
             // 拿到一个MD5转换器（如果想要SHA1参数换成”SHA1”）
             MessageDigest messageDigest = MessageDigest.getInstance("MD5");

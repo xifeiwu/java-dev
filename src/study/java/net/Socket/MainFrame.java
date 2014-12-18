@@ -176,7 +176,7 @@ public class MainFrame extends JFrame implements ActionListener {
         System.out.println(content);
     }
     public void processMsgObj(JSONObject msgObj){
-        System.out.println("processMsgObj: " + msgObj.toString());
+        System.out.println("MainFrame.processMsgObj: " + msgObj.toString());
         if(msgObj.has("content")){
             String address = msgObj.getString("address");
             ChatWindow chatWindow = getChatWindow(address);
