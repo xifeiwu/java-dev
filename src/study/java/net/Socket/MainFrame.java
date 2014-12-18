@@ -232,9 +232,9 @@ public class MainFrame extends JFrame implements ActionListener {
             showChatWindowList();
         }else	        
         if(item.equals(confirmBtn)){
-            String remoteAddress = hostField.getText();
+            String remoteAddress = "192.168.5.176";//hostField.getText();
             int serverPort;
-            String portStr = portField.getText();
+            String portStr = "7777";//portField.getText();
             if((null != remoteAddress) && (null != portStr)){
                 serverPort = Integer.parseInt(portStr);
 //              myLog("You want to connet to server " + destAddress + ": " + destPort);

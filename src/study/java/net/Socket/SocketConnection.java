@@ -147,6 +147,12 @@ public class SocketConnection {
         objToSend.put("content", msgObj.toString());
         String strToSend = objToSend.toString();
         System.out.println("Sending Message to Socket: " + address + ":" + port + ", " + strToSend);
+        
+//        byte[] mBytes = strToSend.getBytes();
+//        System.out.println("Length: " + mBytes.length);
+//        for(int ttt = 0; ttt < mBytes.length; ttt++){
+//            System.out.println(ttt + ":" + mBytes[ttt]);
+//        }
         Socket socket = connectToServerSocket(address, port);
         if(null != socket){
             PrintWriter out = this.getWriter(socket);
@@ -175,7 +181,7 @@ public class SocketConnection {
         }
         return isOK;
     }
-    private boolean waitAndCheckReply(Socket socket, String contentToSend){
+    private boolean waitAndCheckReply(Socket socket, String msgToSend){
         boolean isOK = false;
         //三秒没有反馈，关闭BufferReader。
         Timer mTimer = new Timer();
@@ -186,10 +192,29 @@ public class SocketConnection {
                 JSONObject msgObj = new JSONObject(input.readLine());
                 mTimer.cancel();
                 System.out.println("Reply Message From Socket: " + msgObj.toString());
-                System.out.println("String: " + contentToSend);
-                System.out.println(stringMD5(contentToSend));
-                isOK = true;
+                System.out.println(stringMD5(msgToSend));
                 input.close();
+                if("Reply".equals(msgObj.getString("type"))){
+                    if(msgObj.has("content")){
+                        JSONObject contentObj = new JSONObject(msgObj.getString("content"));
+                        if(contentObj.has("message")){
+                            if(contentObj.getString("message").equals(stringMD5(msgToSend))){
+                                isOK = true;
+                                System.out.println("isOK.");
+                            }else{
+                                System.out.println("contentObj.message" + "MD5 of Message is not the same");
+                                System.out.println("contentObj.message: " + contentObj.getString("message"));
+                                System.out.println("msgToSend:" + stringMD5(msgToSend));
+                                System.out.println("msgToSend:" + byteMD5(msgToSend.getBytes()));
+                            }                            
+                        }else{
+                            System.out.println("waitAndCheckReply:" + "Not message key exist in contentObj.");
+                            System.out.println("contentObj:" + contentObj.toString());
+                        }
+                    }else{
+                        System.out.println("waitAndCheckReply:" + "Not content key exist in msgObj.");
+                    }
+                }
             } else {
                 myLog("waitAndCheckReply Exception", "BufferReader of Socket is null.");                
             }
@@ -204,6 +229,7 @@ public class SocketConnection {
         }
         return isOK;        
     }
+    
     class CloseSocket extends TimerTask {
         private Socket mSocket;
         public CloseSocket(Socket socket){
@@ -236,9 +262,23 @@ public class SocketConnection {
             return null;
         }
     }
+    public String byteMD5(byte[] inputByteArray) {
+        try {
+            // 拿到一个MD5转换器（如果想要SHA1参数换成”SHA1”）
+            MessageDigest messageDigest = MessageDigest.getInstance("MD5");
+            // inputByteArray是输入字符串转换得到的字节数组
+            messageDigest.update(inputByteArray);
+            // 转换并返回结果，也是字节数组，包含16个元素
+            byte[] resultByteArray = messageDigest.digest();
+            // 字符数组转换成字符串返回
+            return byteArrayToHex(resultByteArray);
+        } catch (NoSuchAlgorithmException e) {
+            return null;
+        }
+    }
     public String byteArrayToHex(byte[] byteArray) {
         // 首先初始化一个字符数组，用来存放每个16进制字符
-        char[] hexDigits = { '0', '1', '2', '3', '4', '5', '6', '7', '8', '9', 'A', 'B', 'C', 'D', 'E', 'F' };
+        char[] hexDigits = { '0', '1', '2', '3', '4', '5', '6', '7', '8', '9', 'a', 'b', 'c', 'd', 'e', 'f' };
         // new一个字符数组，这个就是用来组成结果字符串的（解释一下：一个byte是八位二进制，也就是2位十六进制字符（2的8次方等于16的2次方））
         char[] resultCharArray = new char[byteArray.length * 2];
         // 遍历字节数组，通过位运算（位运算效率高），转换成字符放到字符数组中去
