@@ -17,15 +17,11 @@ import java.net.SocketException;
 import java.net.UnknownHostException;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
-import java.util.Date;
 import java.util.Enumeration;
 import java.util.Timer;
 import java.util.TimerTask;
-
 import org.json.JSONException;
 import org.json.JSONObject;
-
-
 
 public class SocketConnection {
 
@@ -90,8 +86,10 @@ public class SocketConnection {
                 while (!Thread.currentThread().isInterrupted() && startServerRunnable) {
                     remoteSocket = mServerSocket.accept();
                     String rAddress = getSocketAddress(remoteSocket);
-                    logToConsole("address", rAddress);
-                    logToConsole("port", ""+getSocketPort(remoteSocket));
+                    int rPort = getSocketPort(remoteSocket);
+                    logToConsole("ServerSocket", rAddress + ":" + rPort + "Connected.");
+//                    logToConsole("address", rAddress);
+//                    logToConsole("port", ""+rPort);
                     JSONObject mMsgObj = getAndWrapMessage(remoteSocket);
                     if(mMsgObj != null){
                         replyMessage(remoteSocket, mMsgObj);
@@ -182,7 +180,7 @@ public class SocketConnection {
         objToSend.put("type", "SentEnFirst");
         objToSend.put("content", msgObj.toString());
         String strToSend = objToSend.toString();
-        System.out.println("Sending Message to Socket: " + address + ":" + port + ", " + strToSend);
+        logToConsole("sendMessage", "Send to " + address + ":" + port + ". Wrapped Message: " + strToSend);
         Socket socket = connectToServerSocket(address, port);
         if(null != socket){
             PrintWriter out = this.getWriter(socket);
@@ -222,8 +220,7 @@ public class SocketConnection {
             if(null != input){
                 JSONObject msgObj = new JSONObject(input.readLine());
                 mTimer.cancel();
-                System.out.println("Reply Message From Socket: " + msgObj.toString());
-//                System.out.println(stringMD5(msgToSend));
+                this.logToConsole("waitAndCheckReply", "Reply Message From Socket: " + msgObj.toString());
                 input.close();
                 if("Reply".equals(msgObj.getString("type"))){
                     if(msgObj.has("content")){
@@ -231,19 +228,18 @@ public class SocketConnection {
                         if(contentObj.has("message")){
                             if(contentObj.getString("message").equals(stringMD5(msgToSend))){
                                 isOK = true;
-                                System.out.println("isOK.");
+                                this.logToConsole("waitAndCheckReply", "isOK.");
                             }else{
-                                System.out.println("contentObj.message" + "MD5 of Message is not the same");
-                                System.out.println("contentObj.message: " + contentObj.getString("message"));
-                                System.out.println("msgToSend:" + stringMD5(msgToSend));
-                                System.out.println("msgToSend:" + byteMD5(msgToSend.getBytes()));
+                                this.logToConsole("waitAndCheckReply", "MD5 of Message Content is not the same");
+                                this.logToConsole("waitAndCheckReply",  contentObj.getString("message"));
+                                this.logToConsole("waitAndCheckReply", "msgToSend: " + stringMD5(msgToSend));
                             }                            
                         }else{
-                            System.out.println("waitAndCheckReply:" + "Not message key exist in contentObj.");
-                            System.out.println("contentObj:" + contentObj.toString());
+                            this.logToConsole("waitAndCheckReply", "Key 'message' does not exist in contentObj.");
+                            this.logToConsole("waitAndCheckReply", "contentObj:" + contentObj.toString());
                         }
                     }else{
-                        System.out.println("waitAndCheckReply:" + "Not content key exist in msgObj.");
+                        this.logToConsole("waitAndCheckReply", "key 'content' does not exist in msgObj.");
                     }
                 }
             } else {
@@ -292,21 +288,7 @@ public class SocketConnection {
         } catch (NoSuchAlgorithmException e) {
             return null;
         }
-    }
-    private String byteMD5(byte[] inputByteArray) {
-        try {
-            // 拿到一个MD5转换器（如果想要SHA1参数换成”SHA1”）
-            MessageDigest messageDigest = MessageDigest.getInstance("MD5");
-            // inputByteArray是输入字符串转换得到的字节数组
-            messageDigest.update(inputByteArray);
-            // 转换并返回结果，也是字节数组，包含16个元素
-            byte[] resultByteArray = messageDigest.digest();
-            // 字符数组转换成字符串返回
-            return byteArrayToHex(resultByteArray);
-        } catch (NoSuchAlgorithmException e) {
-            return null;
-        }
-    }
+    }    
     public String byteArrayToHex(byte[] byteArray) {
         // 首先初始化一个字符数组，用来存放每个16进制字符
         char[] hexDigits = { '0', '1', '2', '3', '4', '5', '6', '7', '8', '9', 'a', 'b', 'c', 'd', 'e', 'f' };
