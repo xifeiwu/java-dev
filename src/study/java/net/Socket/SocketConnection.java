@@ -37,10 +37,13 @@ public class SocketConnection {
         mAddress = getLocalIP();
     }
 
-    private void myLog(String name, String msg){
+    private void logToConsole(String name, String msg){
 //        mFrame.myLog(name, msg);
         String content = name + ": " + msg;
         System.out.println(content);
+    }
+    private void logToMainFrame(String name, String msg){
+        mFrame.myLog(name, msg);        
     }
 
     private Thread ServerThread;
@@ -60,13 +63,13 @@ public class SocketConnection {
                 //java.net.SocketException: Socket closed
                 new Socket(mServerSocket.getInetAddress(), mServerSocket.getLocalPort()).close();
                 mServerSocket.close();
-                myLog("LOG", "ServerSocket Closed.");
+                logToMainFrame("LOG", "ServerSocket Closed.");
             } catch (IOException ioe) {
-                myLog("LOG", "Error when stop ServerSocket, As Below:");
+                logToMainFrame("LOG", "Error when stop ServerSocket, As Below:");
                 ioe.printStackTrace();
             }
         } else {
-            myLog("LOG", "ServerSocket is Not Running.");            
+            logToMainFrame("LOG", "ServerSocket is Not Running.");            
         }
     }
     private ServerSocket mServerSocket;
@@ -78,24 +81,26 @@ public class SocketConnection {
         public void run() {
             try {
                 if((null == mAddress) || (0 == nPort)){
-                    myLog("LOG", "ServerSocket address or port is not set.");
+                    logToMainFrame("LOG", "ServerSocket address or port is not set.");
                     return;
                 }
-                myLog("LOG", "ServerSocket " + mAddress + ":" + nPort + " has started");
+                logToMainFrame("LOG", "ServerSocket " + mAddress + ":" + nPort + " has started");
                 mServerSocket = new ServerSocket(nPort);
                 mServerSocket.setReuseAddress(true);
                 while (!Thread.currentThread().isInterrupted() && startServerRunnable) {
                     remoteSocket = mServerSocket.accept();
-                    myLog("address", getSocketAddress(remoteSocket));
-                    myLog("port", ""+getSocketPort(remoteSocket));
+                    String rAddress = getSocketAddress(remoteSocket);
+                    logToConsole("address", rAddress);
+                    logToConsole("port", ""+getSocketPort(remoteSocket));
                     JSONObject mMsgObj = getAndWrapMessage(remoteSocket);
                     if(mMsgObj != null){
-//                        replyMessage(remoteSocket, mMsgObj);
-//                        mFrame.processMsgObj(mMsgObj);
+                        replyMessage(remoteSocket, mMsgObj);
+                        mFrame.processMsgObj(mMsgObj);
                     }
+                    remoteSocket.close();
                 }
             } catch (IOException e) {
-                myLog("LOG", "Exception In ServerRunnable IOException, As Below:");
+                logToMainFrame("LOG", "Exception In ServerRunnable IOException, As Below:");
                 e.printStackTrace();
             }
         }
@@ -111,15 +116,15 @@ public class SocketConnection {
             JSONObject msgObjFromRemote = new JSONObject(message);
             if(msgObjFromRemote.has("type") && (msgObjFromRemote.getString("type").equals("SentEnFirst"))){
                 mMsgObj.put("content", msgObjFromRemote.getString("content"));                
-                myLog("getAndWrapMessage, Origin", message);
-                myLog("getAndWrapMessage, Wrapped", mMsgObj.toString());
+                logToConsole("getAndWrapMessage, Origin", message);
+                logToConsole("getAndWrapMessage, Wrapped", mMsgObj.toString());
             }else{
-                myLog("getAndWrapMessage", "Ignore Message, " + message);
+                logToConsole("getAndWrapMessage", "Ignore Message, " + message);
                 mMsgObj = null;
             }
-            input.close();
+//            input.close();
         } catch (IOException e) {
-            myLog("getMessage Exception", "IOException, As Below:");
+            logToConsole("getMessage Exception", "IOException, As Below:");
             e.printStackTrace();
         }
         return mMsgObj;
@@ -130,17 +135,19 @@ public class SocketConnection {
         replyContentObj.put("type", "Reply");
         replyContentObj.put("from", mAddress);
         replyContentObj.put("to", getContentObj.getString("from"));
-        replyContentObj.put("message", this.stringMD5(getContentObj.toString()));
+        //注意此处必须使用mMsgObj.getString("content")，而不能使用getContentObj.toString
+        replyContentObj.put("message", this.stringMD5(mMsgObj.getString("content")));
+//        logToConsole("replyMessage Content:", mMsgObj.getString("content"));
+//        logToConsole("replyMessage MD5:", this.stringMD5(mMsgObj.getString("content")));
         replyContentObj.put("time", System.currentTimeMillis());
         JSONObject replyObj = new JSONObject();
         replyObj.put("type", "Reply");
         replyObj.put("content", replyContentObj.toString());
-        myLog("replyMessage", replyObj.toString());
+        logToConsole("replyMessage", replyObj.toString());
         PrintWriter out = this.getWriter(socket);
         if(null != out){
             out.println(replyObj.toString());
             out.flush();
-            out.close();
         }
     }
 
@@ -151,17 +158,17 @@ public class SocketConnection {
             try{
                 serverSocket.sendUrgentData(0xFF);
             }catch(Exception ex){
-                myLog("connectToServerSocket Exception", "ServerSocket " + address + ":" + port +" is NOT open.");
+                logToConsole("connectToServerSocket Exception", "ServerSocket " + address + ":" + port +" is NOT open.");
                 return null;
             }
         } catch (UnknownHostException e) {
             // TODO Auto-generated catch block
-            myLog("connectToServerSocket Exception", "UnknownHostException, As Below:");
+            logToConsole("connectToServerSocket Exception", "UnknownHostException, As Below:");
             e.printStackTrace();
             return null;
         } catch (IOException e) {
             // TODO Auto-generated catch block
-            myLog("connectToServerSocket Exception", "IOException, As Below:");
+            logToConsole("connectToServerSocket Exception", "IOException, As Below:");
             e.printStackTrace();
             return null;
         }
@@ -182,12 +189,12 @@ public class SocketConnection {
             if(null != out){
                 out.println(strToSend);
                 out.flush();
-//                if(waitAndCheckReply(socket, msgObj.toString())){
-//                    isOK = true;
-//                }else{
-//                    isOK = false;
-//                }
-                isOK = true;
+                if(waitAndCheckReply(socket, msgObj.toString())){
+                    isOK = true;
+                }else{
+                    isOK = false;
+                }
+//                isOK = true;
             }else{
                 isOK = false;
             }
@@ -240,15 +247,15 @@ public class SocketConnection {
                     }
                 }
             } else {
-                myLog("waitAndCheckReply Exception", "BufferReader of Socket is null.");                
+                logToConsole("waitAndCheckReply Exception", "BufferReader of Socket is null.");                
             }
         } catch (JSONException e) {
             // TODO Auto-generated catch block
-            myLog("waitAndCheckReply Exception", "UnknownHostException, As Below:");
+            logToConsole("waitAndCheckReply Exception", "UnknownHostException, As Below:");
             e.printStackTrace();
         } catch (IOException e) {
             // TODO Auto-generated catch block
-            myLog("waitAndCheckReply Exception", "IOException, As Below:");
+            logToConsole("waitAndCheckReply Exception", "IOException, As Below:");
             e.printStackTrace();
         }
         return isOK;        
@@ -263,7 +270,7 @@ public class SocketConnection {
         public void run() {
             try {
                 mSocket.close();
-                myLog("TimerTask CloseSocket", "Close Socket.");
+                logToConsole("TimerTask CloseSocket", "Close Socket.");
             } catch (IOException e) {
                 // TODO Auto-generated catch block
                 e.printStackTrace();
@@ -365,12 +372,12 @@ public class SocketConnection {
                     break;
                 }
                 NetworkInterface nif = nifs.nextElement();
-//                    myLog("name of network interface: " + nif.getName());
+//                    logToConsole("name of network interface: " + nif.getName());
                 for (Enumeration<InetAddress> iaenum = nif.getInetAddresses(); iaenum.hasMoreElements();) {
                     InetAddress interfaceAddress = iaenum.nextElement();
                       if (!interfaceAddress.isLoopbackAddress()) {
                           if (interfaceAddress instanceof Inet4Address) {
-//                                  myLog(interfaceAddress.getHostName() + " -- " + interfaceAddress.getHostAddress());
+//                                  logToConsole(interfaceAddress.getHostName() + " -- " + interfaceAddress.getHostAddress());
                               address = interfaceAddress.getHostAddress();
                               break;
                           }
@@ -378,7 +385,7 @@ public class SocketConnection {
                 }
             }
         } catch (SocketException se) {
-            myLog("getLocalIP Exception", "SocketException, As Below:");
+            logToConsole("getLocalIP Exception", "SocketException, As Below:");
             se.printStackTrace();
         }
         return address;
